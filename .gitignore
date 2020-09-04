@@ -2,3 +2,6 @@ venv/
 *.png
 *.bmp
 *.jpg
+t10k*
+train*
+__pycache__/

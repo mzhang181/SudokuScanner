@@ -2,13 +2,14 @@ import cv2
 import numpy as np
 from typing import Tuple, List
 from numpy import sin, cos, tan, fabs, pi
+import extract
 
 # following this article: https://aishack.in/tutorials/sudoku-grabber-opencv-detection/
 def segment():
 
     # TODO downscale to 1080p if greater
-    imgName = "sudoku_4k.png"
-    #imgName = "sudoku_test.png"
+    #imgName = "sudoku_4k.png"
+    imgName = "sudoku_test.png"
     #imgName = "sudoku-original.jpg"
     # import np array of image
     sudoku = cv2.imread(imgName, 0)
@@ -180,10 +181,16 @@ def findExtremeLines(lines, original):
             if fabs(p) > fabs(rightEdge[0]):
                 rightEdge = current
 
+        
+
         # TODO if wanted, we can draw the extremes now for reference 
         # return [topEdge, botEdge, leftEdge, rightEdge]
+    
     print(leftEdge, rightEdge, topEdge, botEdge)
-     
+    edgeLines = np.zeros((len(original), len(original[0])), dtype = "uint8")
+    for line in [[leftEdge], [rightEdge], [topEdge], [botEdge]]:
+        drawLine(line, edgeLines, (128, 0, 0, 0))
+    print(cv2.imwrite("edgeLines.png", edgeLines))
         
     # points on the edges
     l1 = l2 = r1 = r2 = b1 = b2 = t1 = t2 = (0,0)
@@ -281,6 +288,46 @@ def findExtremeLines(lines, original):
 
     return undistorted
 
+def RecogDGT(img):
+    maxLength = len(img)
+    undistort = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 101, 1)
+    kernel = np.array(((0,1,0), (1, 1, 1), (0, 1, 0)), dtype = "uint8")
+
+    print(cv2.imwrite("recog.png", undistort))
+    dr = extract.DgtRecog()
+    b = dr.train("train-images-idx3-ubyte","train-labels-idx1-ubyte")
+    dist = np.int_(np.ceil(maxLength/9))
+    currentCell = np.zeros((dist, dist), dtype="uint8")
+
+    for row in range(9):
+        for col in range(9):
+            y = 0
+            while y < dist and row * dist + y < len(undistort):
+                x = 0
+                ptr = currentCell[y]
+                while x < dist and col * dist + x < len(undistort[0]):
+                    if y < 5 or y + 5> dist or x < 5 or x +5> dist:
+                        x += 1
+                        continue
+                    
+                    ptr[x] = undistort[row * dist + y][col * dist + x]
+                    x += 1
+                y += 1
+
+            m = cv2.moments(currentCell, True)
+            area = m['m00']
+
+            if area > (len(currentCell) * len(currentCell[0]))//5:
+                number = dr.classify(currentCell)
+                print(number[0], end = '')
+                input()
+            else:
+                print(" ", end='')
+        print("")
+
+
+
 if __name__ == "__main__":
-    segment()
-   
+    img = segment()
+    RecogDGT(img)
+    print('were done buddy')
