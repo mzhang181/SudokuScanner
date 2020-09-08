@@ -2,7 +2,9 @@ import cv2
 import numpy as np
 from typing import Tuple, List
 from numpy import sin, cos, tan, fabs, pi
+import pytesseract
 import extract
+import solver
 
 # following this article: https://aishack.in/tutorials/sudoku-grabber-opencv-detection/
 def segment():
@@ -290,42 +292,44 @@ def findExtremeLines(lines, original):
 
 def RecogDGT(img):
     maxLength = len(img)
-    undistort = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 101, 1)
+    undistort = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 101, 1)
     kernel = np.array(((0,1,0), (1, 1, 1), (0, 1, 0)), dtype = "uint8")
+    undistort = cv2.dilate(undistort, kernel)
+
 
     print(cv2.imwrite("recog.png", undistort))
-    dr = extract.DgtRecog()
-    b = dr.train("train-images-idx3-ubyte","train-labels-idx1-ubyte")
     dist = np.int_(np.ceil(maxLength/9))
     currentCell = np.zeros((dist, dist), dtype="uint8")
 
+    grid = []
     for row in range(9):
+        tempRow = []
         for col in range(9):
             y = 0
             while y < dist and row * dist + y < len(undistort):
                 x = 0
                 ptr = currentCell[y]
                 while x < dist and col * dist + x < len(undistort[0]):
-                    if y < 5 or y + 5> dist or x < 5 or x +5> dist:
-                        x += 1
-                        continue
-                    
                     ptr[x] = undistort[row * dist + y][col * dist + x]
                     x += 1
                 y += 1
 
-            m = cv2.moments(currentCell, True)
-            area = m['m00']
-
-            if area > (len(currentCell) * len(currentCell[0]))//5:
-                number = dr.classify(currentCell)
-                print(number[0], end = '')
-                input()
+            cv2.imwrite('currentCell.png', currentCell)
+            text = extract.classify(currentCell)
+            if text[0].isdigit():
+                tempRow.append(int(text[0]))
             else:
-                print(" ", end='')
-        print("")
+                tempRow.append(int(0))
+        
+        grid.append(tempRow)
+      
+    for row in grid:
+        print(row)
 
-
+    if solver.backTrack(grid):
+        print("solved")
+        for row in grid:
+            print(row)
 
 if __name__ == "__main__":
     img = segment()
